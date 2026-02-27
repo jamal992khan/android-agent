@@ -1,19 +1,17 @@
 package ai.openclaw.androidagent.core
 
+import android.content.Context
 import ai.openclaw.androidagent.models.Message
 import ai.openclaw.androidagent.models.Tool
-import ai.openclaw.androidagent.models.ToolCall
 import ai.openclaw.androidagent.tools.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * Core agent runtime - manages messages, tools, and LLM interaction
  */
-class AgentCore private constructor() {
+class AgentCore private constructor(context: Context) {
     
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
@@ -22,6 +20,7 @@ class AgentCore private constructor() {
     val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
     
     private val tools = mutableMapOf<String, Tool>()
+    private val llmManager = LLMManager(context)
     
     init {
         // Register built-in tools
@@ -36,6 +35,10 @@ class AgentCore private constructor() {
         tools[tool.name] = tool
     }
     
+    fun configureLLM(config: LLMManager.LLMConfig) {
+        llmManager.configure(config)
+    }
+    
     suspend fun sendMessage(userMessage: String) {
         if (_isProcessing.value) return
         
@@ -45,10 +48,42 @@ class AgentCore private constructor() {
             // Add user message
             addMessage(Message(content = userMessage, isUser = true))
             
-            // TODO: Call LLM with tools
-            // For now, simple echo response
-            val response = processWithLLM(userMessage)
-            addMessage(Message(content = response, isUser = false))
+            // Call LLM with conversation history and tool definitions
+            val llmMessages = _messages.value.map { msg ->
+                LLMManager.Message(content = msg.content, isUser = msg.isUser)
+            }
+            
+            val toolDefinitions = tools.values.map { tool ->
+                LLMManager.ToolDefinition(
+                    name = tool.name,
+                    description = tool.description,
+                    parameters = tool.parameters.mapValues { it.value.type }
+                )
+            }
+            
+            val response = llmManager.chat(llmMessages, toolDefinitions)
+            
+            // Execute any tool calls
+            if (response.toolCalls.isNotEmpty()) {
+                val toolResults = mutableListOf<String>()
+                
+                response.toolCalls.forEach { toolCall ->
+                    val result = executeToolCall(toolCall)
+                    toolResults.add(result)
+                }
+                
+                // Add tool execution results
+                val combinedResponse = if (response.text.isNotEmpty()) {
+                    "${response.text}\n\n${toolResults.joinToString("\n")}"
+                } else {
+                    toolResults.joinToString("\n")
+                }
+                
+                addMessage(Message(content = combinedResponse, isUser = false))
+            } else {
+                // Just text response
+                addMessage(Message(content = response.text, isUser = false))
+            }
             
         } catch (e: Exception) {
             addMessage(Message(
@@ -60,36 +95,14 @@ class AgentCore private constructor() {
         }
     }
     
-    private suspend fun processWithLLM(input: String): String {
-        // TODO: Implement actual LLM call
-        // This is a placeholder that demonstrates tool usage
+    private suspend fun executeToolCall(toolCall: LLMManager.ToolCall): String {
+        val tool = tools[toolCall.tool] ?: return "❌ Tool '${toolCall.tool}' not found"
         
-        return when {
-            input.contains("tap", ignoreCase = true) -> {
-                "I can help you tap on the screen. Use the tap tool with coordinates."
-            }
-            input.contains("screenshot", ignoreCase = true) -> {
-                "Taking a screenshot..."
-            }
-            else -> {
-                "I'm a prototype Android agent. I can tap, swipe, type text, take screenshots, and run shell commands. What would you like me to do?"
-            }
-        }
-    }
-    
-    private suspend fun executeToolCall(toolCall: ToolCall): String {
-        val tool = tools[toolCall.name] ?: return "Tool '${toolCall.name}' not found"
-        
-        val params = mutableMapOf<String, Any>()
-        toolCall.parameters.keys().forEach { key ->
-            params[key] = toolCall.parameters.get(key)
-        }
-        
-        val result = tool.execute(params)
+        val result = tool.execute(toolCall.params)
         return if (result.success) {
-            "Tool executed successfully: ${result.data}"
+            "✅ ${tool.name}: ${result.data ?: "Success"}"
         } else {
-            "Tool execution failed: ${result.error}"
+            "❌ ${tool.name} failed: ${result.error}"
         }
     }
     
@@ -97,13 +110,17 @@ class AgentCore private constructor() {
         _messages.value = _messages.value + message
     }
     
+    fun clearMessages() {
+        _messages.value = emptyList()
+    }
+    
     companion object {
         @Volatile
         private var instance: AgentCore? = null
         
-        fun getInstance(): AgentCore {
+        fun getInstance(context: Context): AgentCore {
             return instance ?: synchronized(this) {
-                instance ?: AgentCore().also { instance = it }
+                instance ?: AgentCore(context.applicationContext).also { instance = it }
             }
         }
     }

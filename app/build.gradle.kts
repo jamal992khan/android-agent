@@ -91,6 +91,9 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     
+    // Google AI (Gemini SDK - works with AICore/Gemini Nano on-device)
+    implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
+    
     // Root access library (commented out - library not available, will implement directly)
     // implementation("eu.chainfire:libsuperuser:1.1.1")
     

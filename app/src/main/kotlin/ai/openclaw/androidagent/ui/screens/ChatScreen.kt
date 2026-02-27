@@ -18,8 +18,9 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen() {
-    val agentCore = remember { AgentCore.getInstance() }
+fun ChatScreen(onSettingsClick: () -> Unit = {}) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val agentCore = remember { AgentCore.getInstance(context) }
     val messages by agentCore.messages.collectAsState()
     val isProcessing by agentCore.isProcessing.collectAsState()
     
@@ -39,7 +40,7 @@ fun ChatScreen() {
             TopAppBar(
                 title = { Text("Android Agent") },
                 actions = {
-                    IconButton(onClick = { /* TODO: Settings */ }) {
+                    IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
