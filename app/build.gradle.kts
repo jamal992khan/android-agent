@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "ai.openclaw.androidagent"
-        minSdk = 31  // Android 12 (required for AI Edge SDK / Gemini Nano)
+        minSdk = 26  // Android 8.0 (Oreo) - reverted for wider compatibility
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0-alpha"
@@ -94,8 +94,8 @@ dependencies {
     // Google AI SDK (for Gemini Pro cloud)
     implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
     
-    // AI Edge SDK (for Gemini Nano on-device via AICore)
-    implementation("com.google.ai.edge.aicore:aicore:0.0.1-exp01")
+    // AI Edge SDK (for Gemini Nano on-device via AICore) - Coming soon
+    // implementation("com.google.ai.edge.aicore:aicore:0.0.1-exp01")
     
     // Root access library (commented out - library not available, will implement directly)
     // implementation("eu.chainfire:libsuperuser:1.1.1")

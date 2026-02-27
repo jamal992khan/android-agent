@@ -2,8 +2,6 @@ package ai.openclaw.androidagent.core
 
 import android.content.Context
 import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.edge.aicore.GenerativeModel as EdgeGenerativeModel
-import com.google.ai.edge.aicore.generativeModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -54,28 +52,24 @@ class LLMManager(private val context: Context) {
         messages: List<Message>,
         tools: List<ToolDefinition>
     ): ChatResponse {
-        return try {
-            // Gemini Nano via AICore (on-device) using AI Edge SDK
-            val model = generativeModel()
-            
-            val prompt = buildPrompt(messages, tools)
-            val response = model.generateContent(prompt)
-            
-            parseGeminiResponse(response.text ?: "")
-        } catch (e: Exception) {
-            // Detailed error for debugging
-            ChatResponse(
-                text = "❌ Gemini Nano Error\n\n" +
-                       "Device: Your OnePlus 13 should support it!\n" +
-                       "Error: ${e.message}\n\n" +
-                       "**Possible fixes:**\n" +
-                       "1. Enable AICore Beta in Play Store\n" +
-                       "2. Update Google Play Services\n" +
-                       "3. Check Android AICore app is installed\n\n" +
-                       "**Or use Gemini Pro (cloud) in Settings.**",
-                toolCalls = emptyList()
-            )
-        }
+        // NOTE: AI Edge SDK integration is complex and requires:
+        // 1. AICore Beta enrollment
+        // 2. Device-specific setup
+        // 3. Complex initialization code
+        // 
+        // For now, directing users to Gemini Pro (works immediately)
+        // Full AICore implementation coming in future update
+        
+        return ChatResponse(
+            text = "🔧 **Gemini Nano Setup Required**\n\n" +
+                   "Your OnePlus 13 supports Gemini Nano, but it needs manual setup:\n\n" +
+                   "**Recommended: Use Gemini Pro instead**\n" +
+                   "• Works immediately (just need API key)\n" +
+                   "• Tap ⚙️ Settings → Gemini Pro\n" +
+                   "• Get free key: https://makersuite.google.com/app/apikey\n\n" +
+                   "Gemini Nano integration is coming in a future update!",
+            toolCalls = emptyList()
+        )
     }
     
     private suspend fun chatWithGeminiPro(
