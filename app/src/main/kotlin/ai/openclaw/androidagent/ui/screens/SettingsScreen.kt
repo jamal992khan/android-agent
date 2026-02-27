@@ -6,23 +6,46 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ai.openclaw.androidagent.core.AgentCore
 import ai.openclaw.androidagent.core.LLMManager
+import ai.openclaw.androidagent.core.ModelDownloadManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val agentCore = remember { AgentCore.getInstance(context) }
-    
+    val downloadManager = remember {
+        ModelDownloadManager(context).also { it.initializeStates() }
+    }
+    val llamaEngine = remember { agentCore.getLLMManager().getLlamaEngine() }
+
+    // Download states — polled every second while screen is visible
+    val downloadStates by downloadManager.downloadStates.collectAsState()
+
+    // Poll download progress
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            downloadManager.pollProgress()
+            delay(1000L)
+        }
+    }
+
     // Load current config
     val currentConfig = remember { loadConfig(context) }
-    
+
     var selectedProvider by remember { mutableStateOf(currentConfig.provider) }
     var apiKey by remember { mutableStateOf(currentConfig.apiKey ?: "") }
     var endpoint by remember { mutableStateOf(currentConfig.endpoint ?: "") }
@@ -54,7 +77,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             )
             
             // First-run helper
-            if (selectedProvider == LLMManager.Provider.GEMINI_NANO) {
+            if (selectedProvider == LLMManager.Provider.LOCAL) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -63,13 +86,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "🚀 Default: On-Device AI",
+                            "🚀 Default: 100% Offline Local AI",
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            "\nGemini Nano is pre-selected for the best experience!\n\n" +
-                            "Just tap Save and start chatting.\n\n" +
-                            "If you see errors about AICore, follow the setup steps below.",
+                            "\nLocal GGUF models run entirely on your OnePlus 13!\n\n" +
+                            "Download a model below to get started.\n" +
+                            "Once downloaded, the app works with NO internet required.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -103,8 +126,17 @@ fun SettingsScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     ProviderOption(
-                        title = "Gemini Nano (On-Device) ⭐",
-                        description = "Recommended! Fastest, private, offline. Works on OnePlus 13, Pixel 8+, Galaxy S24+.",
+                        title = "Local GGUF Model ⭐ (100% Offline)",
+                        description = "Best for OnePlus 13! Runs Llama/Phi entirely on-device. Download model below.",
+                        selected = selectedProvider == LLMManager.Provider.LOCAL,
+                        onClick = { selectedProvider = LLMManager.Provider.LOCAL }
+                    )
+
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    ProviderOption(
+                        title = "Gemini Nano (On-Device)",
+                        description = "On-device via AICore. Works on Pixel 8+, Galaxy S24+.",
                         selected = selectedProvider == LLMManager.Provider.GEMINI_NANO,
                         onClick = { selectedProvider = LLMManager.Provider.GEMINI_NANO }
                     )
@@ -131,6 +163,15 @@ fun SettingsScreen(onBack: () -> Unit) {
             
             // Configuration fields based on selected provider
             when (selectedProvider) {
+                LLMManager.Provider.LOCAL -> {
+                    // Local Model section
+                    LocalModelSection(
+                        downloadManager = downloadManager,
+                        llamaEngine = llamaEngine,
+                        downloadStates = downloadStates
+                    )
+                }
+
                 LLMManager.Provider.GEMINI_NANO -> {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -243,6 +284,207 @@ fun SettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
+fun LocalModelSection(
+    downloadManager: ModelDownloadManager,
+    llamaEngine: ai.openclaw.androidagent.core.LlamaEngine,
+    downloadStates: Map<String, ModelDownloadManager.DownloadState>
+) {
+    val loadedModel = llamaEngine.getLoadedModelName()
+    val storageUsed = remember(downloadStates) { downloadManager.totalStorageUsedDisplay() }
+
+    // Header info card
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "🤖 Local GGUF Models",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            if (loadedModel != null) {
+                Text(
+                    "✅ Active: $loadedModel",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Text(
+                    "No model loaded. Download one below.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (storageUsed != "0 MB") {
+                Text(
+                    "💾 Storage used: $storageUsed",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    // Model cards
+    ModelDownloadManager.AVAILABLE_MODELS.forEach { model ->
+        val state = downloadStates[model.id]
+            ?: ModelDownloadManager.DownloadState(model.id, ModelDownloadManager.DownloadState.Status.IDLE)
+        val isDownloaded = downloadManager.isModelDownloaded(model)
+
+        ModelDownloadCard(
+            model = model,
+            state = state,
+            isDownloaded = isDownloaded,
+            isActive = loadedModel == model.fileName,
+            onDownload = { downloadManager.startDownload(model) },
+            onCancel = { downloadManager.cancelDownload(model.id) },
+            onDelete = { downloadManager.deleteModel(model) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+fun ModelDownloadCard(
+    model: ModelDownloadManager.ModelInfo,
+    state: ModelDownloadManager.DownloadState,
+    isDownloaded: Boolean,
+    isActive: Boolean,
+    onDownload: () -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (isActive) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) else CardDefaults.cardColors()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        model.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        model.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Size: ${model.displaySize} · RAM: ${model.ramRequiredMb / 1024}GB+",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (isActive) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Active",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            when {
+                state.status == ModelDownloadManager.DownloadState.Status.DOWNLOADING ||
+                state.status == ModelDownloadManager.DownloadState.Status.QUEUED -> {
+                    // Show progress bar
+                    LinearProgressIndicator(
+                        progress = { state.progressPercent / 100f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val dlMb = state.downloadedBytes / 1024 / 1024
+                        val totalMb = if (state.totalBytes > 0) state.totalBytes / 1024 / 1024 else model.sizeBytes / 1024 / 1024
+                        Text(
+                            "${state.progressPercent}% (${dlMb}MB / ${totalMb}MB)",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        TextButton(onClick = onCancel) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+
+                isDownloaded || state.status == ModelDownloadManager.DownloadState.Status.COMPLETED -> {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!isActive) {
+                            OutlinedButton(
+                                onClick = { /* model will auto-load on next chat */ },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Use This Model")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {},
+                                enabled = false,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("✓ Active")
+                            }
+                        }
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        }
+                    }
+                }
+
+                state.status == ModelDownloadManager.DownloadState.Status.FAILED -> {
+                    Text(
+                        "❌ ${state.errorMessage ?: "Download failed"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(
+                        onClick = onDownload,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Retry Download")
+                    }
+                }
+
+                else -> {
+                    Button(
+                        onClick = onDownload,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Download (${model.displaySize})")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ProviderOption(
     title: String,
     description: String,
@@ -281,10 +523,17 @@ private fun saveConfig(context: Context, config: LLMManager.LLMConfig) {
 
 fun loadConfig(context: Context): LLMManager.LLMConfig {
     val prefs = context.getSharedPreferences("llm_config", Context.MODE_PRIVATE)
-    val providerName = prefs.getString("provider", LLMManager.Provider.GEMINI_NANO.name)
-    
+    // Default to LOCAL provider for new installs (100% offline on OnePlus 13!)
+    val providerName = prefs.getString("provider", LLMManager.Provider.LOCAL.name)
+
+    val provider = try {
+        LLMManager.Provider.valueOf(providerName ?: LLMManager.Provider.LOCAL.name)
+    } catch (e: IllegalArgumentException) {
+        LLMManager.Provider.LOCAL
+    }
+
     return LLMManager.LLMConfig(
-        provider = LLMManager.Provider.valueOf(providerName ?: LLMManager.Provider.GEMINI_NANO.name),
+        provider = provider,
         apiKey = prefs.getString("api_key", null),
         endpoint = prefs.getString("endpoint", null),
         model = prefs.getString("model", null)
