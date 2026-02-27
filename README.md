@@ -98,6 +98,9 @@ cd android-agent
 | `launch_app` | Launch app by name or package | `appName`, `packageName` |
 | `navigate` | System navigation (back/home) | `action` |
 | `get_current_app` | Get active app info | - |
+| `scroll` | Scroll up/down/left/right | `direction`, `elementText` |
+| `clipboard` | Get/set clipboard content | `action`, `text` |
+| `notifications` | Open/close notification shade | `action` |
 
 ## LLM Integration
 
