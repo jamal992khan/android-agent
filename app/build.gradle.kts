@@ -77,10 +77,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
-    // Room Database
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    // Room Database — 2.7.0-alpha13 required for KSP + Kotlin 2.2.x compatibility
+    implementation("androidx.room:room-runtime:2.7.0-alpha13")
+    implementation("androidx.room:room-ktx:2.7.0-alpha13")
+    ksp("androidx.room:room-compiler:2.7.0-alpha13")
 
     // WorkManager (for SelfImprovementLoop background worker)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
