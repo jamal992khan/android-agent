@@ -76,8 +76,8 @@ class LLMManager(private val context: Context) {
         messages: List<Message>,
         tools: List<ToolDefinition>
     ): ChatResponse {
-        return try {
-            // Get the generative model client (no-arg factory)
+        val nanoResult = runCatching {
+            // Get the generative model client
             val model = Generation.getClient()
 
             // Check if Gemini Nano is available on this device
@@ -85,81 +85,57 @@ class LLMManager(private val context: Context) {
 
             when (status) {
                 FeatureStatus.AVAILABLE -> {
-                    // Model is ready — generate response using the simple text API
                     val prompt = buildPrompt(messages, tools)
                     val response = model.generateContent(prompt)
                     val text = response.candidates.firstOrNull()?.text ?: ""
                     parseResponse(text)
                 }
-
-                FeatureStatus.UNAVAILABLE -> {
-                    ChatResponse(
-                        text = "⚠️ **Gemini Nano Not Supported**\n\n" +
-                                "This device does not support on-device Gemini Nano.\n\n" +
-                                "**Supported devices:** Pixel 8+, Samsung Galaxy S24+, and others with Android AICore.\n\n" +
-                                "**Alternatives:**\n" +
-                                "• ⚙️ Settings → **Gemini Pro** (free API key at https://aistudio.google.com/app/apikey)\n" +
-                                "• ⚙️ Settings → **Custom Endpoint** (Ollama, OpenAI, etc.)",
-                        toolCalls = emptyList()
-                    )
-                }
-
-                else -> {
-                    // Model needs to be downloaded first — inform the user
-                    // (Download can be triggered from Settings or device automatically)
-                    ChatResponse(
-                        text = "⏳ **Gemini Nano Model Download Required**\n\n" +
-                                "The on-device model is not yet downloaded on this device.\n" +
-                                "Status: $status\n\n" +
-                                "This typically happens automatically via AICore in the background.\n" +
-                                "Make sure you have a Wi-Fi connection and sufficient storage (~1.5 GB).\n\n" +
-                                "**Tip:** Use Gemini Pro or a Custom Endpoint while waiting!",
-                        toolCalls = emptyList()
-                    )
-                }
+                FeatureStatus.UNAVAILABLE -> null // device unsupported, fall through
+                else -> ChatResponse(
+                    text = "⏳ **Gemini Nano Downloading...**\n\n" +
+                            "Model is downloading in the background (~1.5 GB, happens once).\n" +
+                            "Try again in a few minutes, or switch to Gemini Pro in ⚙️ Settings!",
+                    toolCalls = emptyList()
+                )
             }
-        } catch (e: Exception) {
-            // Error codes from AICore:
-            // 606 = FEATURE_NOT_FOUND — device doesn't support Gemini Nano
-            // PREPARATION_ERROR — AICore not ready
-            // Auto-fallback: silently try Gemini Pro if configured, else show friendly message
-            val isDeviceUnsupported = e.message?.contains("606", ignoreCase = true) == true ||
-                e.message?.contains("FEATURE_NOT_FOUND", ignoreCase = true) == true ||
-                e.message?.contains("NOT_AVAILABLE", ignoreCase = true) == true ||
-                e.message?.contains("PREPARATION_ERROR", ignoreCase = true) == true
-
-            if (isDeviceUnsupported && !config.apiKey.isNullOrEmpty()) {
-                // Silent auto-fallback to Gemini Pro
-                return@withContext chatWithGeminiPro(messages, tools)
-            }
-
-            if (isDeviceUnsupported && !config.endpoint.isNullOrEmpty()) {
-                // Silent auto-fallback to custom endpoint
-                return@withContext chatWithCustomEndpoint(messages, tools)
-            }
-
-            val errorMessage = when {
-                isDeviceUnsupported ->
-                    "📱 **Gemini Nano Not Available on This Device**\n\n" +
-                    "On-device AI requires a Pixel 8+ or Samsung Galaxy S24+ with Android 14+.\n\n" +
-                    "**Get started in 2 mins:**\n" +
-                    "1. Tap ⚙️ Settings\n" +
-                    "2. Choose **Gemini Pro** (free key at https://aistudio.google.com/app/apikey)\n" +
-                    "   — or —\n" +
-                    "   Choose **Custom Endpoint** (Ollama on your PC)"
-
-                e.message?.contains("DOWNLOAD", ignoreCase = true) == true ->
-                    "⏳ **Gemini Nano Downloading...**\n\n" +
-                    "Model is downloading in the background (~1.5 GB, happens once).\n" +
-                    "Try again in a few minutes, or use Gemini Pro in Settings now!"
-
-                else ->
-                    "❌ **Gemini Nano Error**\n\n" +
-                    "Error: ${e.message}\n\n" +
-                    "Switch to Gemini Pro or Custom Endpoint in ⚙️ Settings."
-            }
-            ChatResponse(text = errorMessage, toolCalls = emptyList())
         }
+
+        // If Nano succeeded, return result
+        nanoResult.getOrNull()?.let { return it }
+
+        // Nano failed or unavailable — check if it's a known device limitation
+        val exception = nanoResult.exceptionOrNull()
+        val isDeviceUnsupported = exception == null || // null means status was UNAVAILABLE
+            exception.message?.contains("606") == true ||
+            exception.message?.contains("FEATURE_NOT_FOUND", ignoreCase = true) == true ||
+            exception.message?.contains("NOT_AVAILABLE", ignoreCase = true) == true ||
+            exception.message?.contains("PREPARATION_ERROR", ignoreCase = true) == true
+
+        // Silent auto-fallback chain: Gemini Pro → Custom Endpoint → friendly message
+        if (isDeviceUnsupported) {
+            if (!config.apiKey.isNullOrEmpty()) {
+                return chatWithGeminiPro(messages, tools)
+            }
+            if (!config.endpoint.isNullOrEmpty()) {
+                return chatWithCustomEndpoint(messages, tools)
+            }
+            return ChatResponse(
+                text = "📱 **Gemini Nano Not Available on This Device**\n\n" +
+                        "On-device AI requires a Pixel 8+ or Samsung Galaxy S24+ with Android 14+.\n\n" +
+                        "**Get started in 2 mins:**\n" +
+                        "1. Tap ⚙️ Settings\n" +
+                        "2. Choose **Gemini Pro** (free key at https://aistudio.google.com/app/apikey)\n" +
+                        "   — or —\n" +
+                        "   Choose **Custom Endpoint** (Ollama, OpenAI, etc.)",
+                toolCalls = emptyList()
+            )
+        }
+
+        // Unknown error
+        return ChatResponse(
+            text = "❌ **Gemini Nano Error**\n\nError: ${exception?.message}\n\nSwitch to Gemini Pro or Custom Endpoint in ⚙️ Settings.",
+            toolCalls = emptyList()
+        )
     }
 
     private suspend fun chatWithGeminiPro(
