@@ -54,7 +54,27 @@ fun SettingsScreen(onBack: () -> Unit) {
             )
             
             // First-run helper
-            if (apiKey.isEmpty() && selectedProvider == LLMManager.Provider.GEMINI_PRO) {
+            if (selectedProvider == LLMManager.Provider.GEMINI_NANO) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "🚀 Default: On-Device AI",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "\nGemini Nano is pre-selected for the best experience!\n\n" +
+                            "Just tap Save and start chatting.\n\n" +
+                            "If you see errors about AICore, follow the setup steps below.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            } else if (apiKey.isEmpty() && selectedProvider == LLMManager.Provider.GEMINI_PRO) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -83,19 +103,19 @@ fun SettingsScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     ProviderOption(
-                        title = "Gemini Pro (Cloud) ⭐",
-                        description = "Recommended. Fast, capable, works on all devices. Free tier available.",
-                        selected = selectedProvider == LLMManager.Provider.GEMINI_PRO,
-                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_PRO }
+                        title = "Gemini Nano (On-Device) ⭐",
+                        description = "Recommended! Fastest, private, offline. Works on OnePlus 13, Pixel 8+, Galaxy S24+.",
+                        selected = selectedProvider == LLMManager.Provider.GEMINI_NANO,
+                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_NANO }
                     )
                     
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
                     
                     ProviderOption(
-                        title = "Gemini Nano (On-Device)",
-                        description = "Free, private, offline. Only works on Pixel 8+ / Samsung S24+.",
-                        selected = selectedProvider == LLMManager.Provider.GEMINI_NANO,
-                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_NANO }
+                        title = "Gemini Pro (Cloud)",
+                        description = "More capable, requires internet and API key. Good fallback.",
+                        selected = selectedProvider == LLMManager.Provider.GEMINI_PRO,
+                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_PRO }
                     )
                     
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
@@ -120,18 +140,21 @@ fun SettingsScreen(onBack: () -> Unit) {
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "⚙️ Setup Gemini Nano (OnePlus 13)",
+                                "✅ Gemini Nano Ready!",
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                "\nYour device supports it! To enable:\n\n" +
-                                "1. Join AICore Beta program:\n" +
-                                "   • Open Play Store\n" +
-                                "   • Search 'Android AICore'\n" +
-                                "   • Tap 'Join Beta'\n\n" +
-                                "2. Wait for AICore update (takes a few minutes)\n\n" +
-                                "3. Restart this app\n\n" +
-                                "If it still shows errors, use Gemini Pro instead (works immediately).",
+                                "\n**Your OnePlus 13 supports on-device AI!**\n\n" +
+                                "If you see 'NOT_AVAILABLE' error:\n" +
+                                "1. Play Store → 'Android AICore'\n" +
+                                "2. Join Beta → Wait for update (~5 min)\n" +
+                                "3. Restart app\n\n" +
+                                "Benefits:\n" +
+                                "• ⚡ Lightning fast (no network)\n" +
+                                "• 🔒 100% private (never leaves device)\n" +
+                                "• 📴 Works offline\n" +
+                                "• 🆓 Completely free\n\n" +
+                                "Tap Save and start chatting!",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -258,10 +281,10 @@ private fun saveConfig(context: Context, config: LLMManager.LLMConfig) {
 
 fun loadConfig(context: Context): LLMManager.LLMConfig {
     val prefs = context.getSharedPreferences("llm_config", Context.MODE_PRIVATE)
-    val providerName = prefs.getString("provider", LLMManager.Provider.GEMINI_PRO.name)
+    val providerName = prefs.getString("provider", LLMManager.Provider.GEMINI_NANO.name)
     
     return LLMManager.LLMConfig(
-        provider = LLMManager.Provider.valueOf(providerName ?: LLMManager.Provider.GEMINI_PRO.name),
+        provider = LLMManager.Provider.valueOf(providerName ?: LLMManager.Provider.GEMINI_NANO.name),
         apiKey = prefs.getString("api_key", null),
         endpoint = prefs.getString("endpoint", null),
         model = prefs.getString("model", null)

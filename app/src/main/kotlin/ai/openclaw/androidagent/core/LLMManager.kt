@@ -2,8 +2,11 @@ package ai.openclaw.androidagent.core
 
 import android.content.Context
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.mlkit.genai.prompt.Generation
+import com.google.mlkit.genai.prompt.generateContentRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -29,8 +32,7 @@ class LLMManager(private val context: Context) {
     }
     
     private var config: LLMConfig = LLMConfig(
-        provider = Provider.GEMINI_PRO,  // Default to cloud (wider compatibility)
-        apiKey = null  // User must configure
+        provider = Provider.GEMINI_NANO  // Default to on-device (fast, private, free!)
     )
     
     fun configure(newConfig: LLMConfig) {
@@ -52,24 +54,50 @@ class LLMManager(private val context: Context) {
         messages: List<Message>,
         tools: List<ToolDefinition>
     ): ChatResponse {
-        // NOTE: AI Edge SDK integration is complex and requires:
-        // 1. AICore Beta enrollment
-        // 2. Device-specific setup
-        // 3. Complex initialization code
-        // 
-        // For now, directing users to Gemini Pro (works immediately)
-        // Full AICore implementation coming in future update
-        
-        return ChatResponse(
-            text = "🔧 **Gemini Nano Setup Required**\n\n" +
-                   "Your OnePlus 13 supports Gemini Nano, but it needs manual setup:\n\n" +
-                   "**Recommended: Use Gemini Pro instead**\n" +
-                   "• Works immediately (just need API key)\n" +
-                   "• Tap ⚙️ Settings → Gemini Pro\n" +
-                   "• Get free key: https://makersuite.google.com/app/apikey\n\n" +
-                   "Gemini Nano integration is coming in a future update!",
-            toolCalls = emptyList()
-        )
+        return try {
+            // Gemini Nano via ML Kit GenAI API (production-ready!)
+            val generativeModel = Generation.INSTANCE.getClient()
+            
+            val prompt = buildPrompt(messages, tools)
+            
+            val request = generateContentRequest {
+                text(prompt)
+            }
+            
+            val result = generativeModel.generateContent(request).await()
+            
+            parseGeminiResponse(result.text ?: "")
+        } catch (e: Exception) {
+            // Better error handling with setup instructions
+            val errorMessage = when {
+                e.message?.contains("NOT_AVAILABLE") == true -> 
+                    "❌ **Gemini Nano Not Available**\n\n" +
+                    "Your device supports it, but AICore isn't ready.\n\n" +
+                    "**Quick Fix:**\n" +
+                    "1. Open Google Play Store\n" +
+                    "2. Search 'Android AICore'\n" +
+                    "3. Join Beta program\n" +
+                    "4. Wait for update (~5 min)\n" +
+                    "5. Restart this app\n\n" +
+                    "**Alternative:** Use Gemini Pro in Settings (works now!)"
+                
+                e.message?.contains("DOWNLOAD") == true ->
+                    "⏳ **Downloading Gemini Nano**\n\n" +
+                    "Model is being downloaded in background.\n" +
+                    "This happens once. Try again in a few minutes.\n\n" +
+                    "**Tip:** Use Gemini Pro while waiting!"
+                
+                else ->
+                    "❌ Gemini Nano Error\n\n" +
+                    "Error: ${e.message}\n\n" +
+                    "Use Gemini Pro in Settings as fallback."
+            }
+            
+            ChatResponse(
+                text = errorMessage,
+                toolCalls = emptyList()
+            )
+        }
     }
     
     private suspend fun chatWithGeminiPro(

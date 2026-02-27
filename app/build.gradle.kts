@@ -94,8 +94,8 @@ dependencies {
     // Google AI SDK (for Gemini Pro cloud)
     implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
     
-    // AI Edge SDK (for Gemini Nano on-device via AICore) - Coming soon
-    // implementation("com.google.ai.edge.aicore:aicore:0.0.1-exp01")
+    // ML Kit GenAI API (for Gemini Nano on-device via AICore)
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta1")
     
     // Root access library (commented out - library not available, will implement directly)
     // implementation("eu.chainfire:libsuperuser:1.1.1")
