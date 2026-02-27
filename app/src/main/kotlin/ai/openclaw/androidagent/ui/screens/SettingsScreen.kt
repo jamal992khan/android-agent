@@ -112,13 +112,30 @@ fun SettingsScreen(onBack: () -> Unit) {
             // Configuration fields based on selected provider
             when (selectedProvider) {
                 LLMManager.Provider.GEMINI_NANO -> {
-                    Text(
-                        text = "✅ No configuration needed!\n\n" +
-                               "Gemini Nano runs entirely on your device. " +
-                               "If you see errors, your device may not support it yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "⚙️ Setup Gemini Nano (OnePlus 13)",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "\nYour device supports it! To enable:\n\n" +
+                                "1. Join AICore Beta program:\n" +
+                                "   • Open Play Store\n" +
+                                "   • Search 'Android AICore'\n" +
+                                "   • Tap 'Join Beta'\n\n" +
+                                "2. Wait for AICore update (takes a few minutes)\n\n" +
+                                "3. Restart this app\n\n" +
+                                "If it still shows errors, use Gemini Pro instead (works immediately).",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
                 }
                 
                 LLMManager.Provider.GEMINI_PRO -> {

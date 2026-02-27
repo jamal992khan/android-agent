@@ -2,7 +2,8 @@ package ai.openclaw.androidagent.core
 
 import android.content.Context
 import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
+import com.google.ai.edge.aicore.GenerativeModel as EdgeGenerativeModel
+import com.google.ai.edge.aicore.generativeModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -54,10 +55,14 @@ class LLMManager(private val context: Context) {
         tools: List<ToolDefinition>
     ): ChatResponse {
         return try {
-            // Gemini Nano via AICore (on-device)
-            val model = GenerativeModel(
-                modelName = "gemini-nano",
-                apiKey = "" // Not needed for on-device
+            // Gemini Nano via AICore (on-device) using AI Edge SDK
+            val model = generativeModel(
+                generationConfig = {
+                    temperature = 0.7f
+                    topK = 40
+                    topP = 0.95f
+                    maxOutputTokens = 2048
+                }
             )
             
             val prompt = buildPrompt(messages, tools)
@@ -65,10 +70,16 @@ class LLMManager(private val context: Context) {
             
             parseGeminiResponse(response.text ?: "")
         } catch (e: Exception) {
-            // Fallback to placeholder if Gemini Nano not available
+            // Detailed error for debugging
             ChatResponse(
-                text = "Gemini Nano not available on this device. Error: ${e.message}\n\n" +
-                       "Please configure a cloud provider or custom endpoint in Settings.",
+                text = "❌ Gemini Nano Error\n\n" +
+                       "Device: Your OnePlus 13 should support it!\n" +
+                       "Error: ${e.message}\n\n" +
+                       "**Possible fixes:**\n" +
+                       "1. Enable AICore Beta in Play Store\n" +
+                       "2. Update Google Play Services\n" +
+                       "3. Check Android AICore app is installed\n\n" +
+                       "**Or use Gemini Pro (cloud) in Settings.**",
                 toolCalls = emptyList()
             )
         }
