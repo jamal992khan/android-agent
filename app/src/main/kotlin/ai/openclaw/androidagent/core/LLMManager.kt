@@ -81,7 +81,7 @@ class LLMManager(private val context: Context) {
             val model = Generation.getClient()
 
             // Check if Gemini Nano is available on this device
-            @FeatureStatus val status = model.checkStatus()
+            val status = model.checkStatus()
 
             when (status) {
                 FeatureStatus.AVAILABLE -> {
