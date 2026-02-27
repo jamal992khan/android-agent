@@ -1,0 +1,99 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug --stacktrace
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-agent-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+
+    - name: Get short SHA
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      id: sha
+      run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+    - name: Delete existing latest release (if any)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        gh release delete latest --yes 2>/dev/null || true
+        git push origin :refs/tags/latest 2>/dev/null || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create rolling latest release
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest
+        name: "Latest Build (${{ steps.sha.outputs.short }})"
+        body: |
+          🤖 **Android Agent — Latest Build**
+
+          Automatically built from the latest commit on `main`.
+
+          **Commit:** `${{ github.sha }}`
+          **Message:** ${{ github.event.head_commit.message }}
+
+          ### Install
+          1. Download `app-debug.apk` below
+          2. Enable "Install from unknown sources" on your Android device
+          3. Install and enable Accessibility Service
+          4. Configure your LLM provider in Settings
+
+          ### LLM Options
+          - 📱 **Gemini Nano** — on-device, requires Pixel 8+ / Galaxy S24+ with Android 14+
+          - ☁️ **Gemini Pro** — free API key at https://aistudio.google.com/app/apikey
+          - 🖥️ **Custom Endpoint** — Ollama, OpenAI, or any OpenAI-compatible server
+        files: app/build/outputs/apk/debug/app-debug.apk
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create versioned release (on tag)
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: app/build/outputs/apk/debug/app-debug.apk
+        body: |
+          🚀 **Android Agent Release**
+
+          ### Install
+          Download `app-debug.apk` and install on your Android device.
+
+          ### LLM Options
+          - 📱 Gemini Nano (on-device, Pixel 8+ / Galaxy S24+)
+          - ☁️ Gemini Pro (free API key at https://aistudio.google.com/app/apikey)
+          - 🖥️ Custom Endpoint (Ollama, OpenAI-compatible)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -119,28 +119,44 @@ class LLMManager(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            val errorMessage = when {
+            // Error codes from AICore:
+            // 606 = FEATURE_NOT_FOUND — device doesn't support Gemini Nano
+            // PREPARATION_ERROR — AICore not ready
+            // Auto-fallback: silently try Gemini Pro if configured, else show friendly message
+            val isDeviceUnsupported = e.message?.contains("606", ignoreCase = true) == true ||
+                e.message?.contains("FEATURE_NOT_FOUND", ignoreCase = true) == true ||
                 e.message?.contains("NOT_AVAILABLE", ignoreCase = true) == true ||
-                e.message?.contains("unavailable", ignoreCase = true) == true ->
-                    "❌ **Gemini Nano Not Available**\n\n" +
-                    "Your device may support it, but AICore isn't ready.\n\n" +
-                    "**Quick Fix:**\n" +
-                    "1. Open Google Play Store\n" +
-                    "2. Search 'Android AICore'\n" +
-                    "3. Update it (join Beta if needed)\n" +
-                    "4. Restart this app\n\n" +
-                    "**Alternative:** Use Gemini Pro in Settings (works immediately!)"
+                e.message?.contains("PREPARATION_ERROR", ignoreCase = true) == true
+
+            if (isDeviceUnsupported && !config.apiKey.isNullOrEmpty()) {
+                // Silent auto-fallback to Gemini Pro
+                return@withContext chatWithGeminiPro(messages, tools)
+            }
+
+            if (isDeviceUnsupported && !config.endpoint.isNullOrEmpty()) {
+                // Silent auto-fallback to custom endpoint
+                return@withContext chatWithCustomEndpoint(messages, tools)
+            }
+
+            val errorMessage = when {
+                isDeviceUnsupported ->
+                    "📱 **Gemini Nano Not Available on This Device**\n\n" +
+                    "On-device AI requires a Pixel 8+ or Samsung Galaxy S24+ with Android 14+.\n\n" +
+                    "**Get started in 2 mins:**\n" +
+                    "1. Tap ⚙️ Settings\n" +
+                    "2. Choose **Gemini Pro** (free key at https://aistudio.google.com/app/apikey)\n" +
+                    "   — or —\n" +
+                    "   Choose **Custom Endpoint** (Ollama on your PC)"
 
                 e.message?.contains("DOWNLOAD", ignoreCase = true) == true ->
-                    "⏳ **Downloading Gemini Nano**\n\n" +
-                    "Model is being downloaded in the background.\n" +
-                    "This happens once (~1.5 GB). Try again in a few minutes.\n\n" +
-                    "**Tip:** Use Gemini Pro while waiting!"
+                    "⏳ **Gemini Nano Downloading...**\n\n" +
+                    "Model is downloading in the background (~1.5 GB, happens once).\n" +
+                    "Try again in a few minutes, or use Gemini Pro in Settings now!"
 
                 else ->
                     "❌ **Gemini Nano Error**\n\n" +
                     "Error: ${e.message}\n\n" +
-                    "Use Gemini Pro or Custom Endpoint in Settings as fallback."
+                    "Switch to Gemini Pro or Custom Endpoint in ⚙️ Settings."
             }
             ChatResponse(text = errorMessage, toolCalls = emptyList())
         }
