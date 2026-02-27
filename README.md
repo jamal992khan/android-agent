@@ -101,6 +101,9 @@ cd android-agent
 | `scroll` | Scroll up/down/left/right | `direction`, `elementText` |
 | `clipboard` | Get/set clipboard content | `action`, `text` |
 | `notifications` | Open/close notification shade | `action` |
+| `long_press` | Long press at coordinates | `x`, `y`, `duration` |
+| `wait` | Wait for duration or element | `seconds`, `forText`, `timeout` |
+| `click_element` | Find and click element by text | `text`, `index` |
 
 ## LLM Integration
 

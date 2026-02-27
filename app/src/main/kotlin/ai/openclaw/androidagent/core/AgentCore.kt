@@ -39,6 +39,9 @@ class AgentCore private constructor(context: Context) {
         registerTool(ScrollTool())
         registerTool(ClipboardTool(context))
         registerTool(NotificationTool())
+        registerTool(LongPressTool())
+        registerTool(WaitTool())
+        registerTool(ClickElementTool())
     }
     
     fun registerTool(tool: Tool) {
