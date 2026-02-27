@@ -49,7 +49,7 @@ An AI agent runtime for Android that controls your device through accessibility 
 
 ### Prerequisites
 
-- Android 8.0 (API 26) or higher
+- Android 12 (API 31) or higher *(updated for Gemini Nano support)*
 - Optional: Rooted device for advanced features
 
 ### Installation

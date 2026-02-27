@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "ai.openclaw.androidagent"
-        minSdk = 26  // Android 8.0 (Oreo)
+        minSdk = 31  // Android 12 (required for AI Edge SDK / Gemini Nano)
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0-alpha"
