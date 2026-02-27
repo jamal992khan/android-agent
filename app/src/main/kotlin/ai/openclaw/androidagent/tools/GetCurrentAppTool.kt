@@ -36,9 +36,9 @@ class GetCurrentAppTool(private val context: Context) : Tool {
                 appendLine("  Package: $packageName")
             }
             
-            ToolResult(true, data = result)
+            return ToolResult(true, data = result)
         } catch (e: Exception) {
-            ToolResult(true, data = "Package: $packageName\n(App name unavailable)")
+            return ToolResult(true, data = "Package: $packageName\n(App name unavailable)")
         }
     }
 }

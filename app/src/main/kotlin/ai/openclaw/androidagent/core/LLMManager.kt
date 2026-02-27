@@ -56,14 +56,7 @@ class LLMManager(private val context: Context) {
     ): ChatResponse {
         return try {
             // Gemini Nano via AICore (on-device) using AI Edge SDK
-            val model = generativeModel(
-                generationConfig = {
-                    temperature = 0.7f
-                    topK = 40
-                    topP = 0.95f
-                    maxOutputTokens = 2048
-                }
-            )
+            val model = generativeModel()
             
             val prompt = buildPrompt(messages, tools)
             val response = model.generateContent(prompt)

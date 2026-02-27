@@ -21,7 +21,7 @@ class NotificationTool : Tool {
         val action = (params["action"] as? String)?.lowercase()
             ?: return@execute ToolResult(false, error = "Invalid action parameter")
         
-        when (action) {
+        return when (action) {
             "list" -> {
                 // Note: Reading notifications requires notification listener permission
                 // For now, return placeholder
