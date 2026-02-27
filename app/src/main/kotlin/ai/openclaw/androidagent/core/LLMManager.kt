@@ -63,6 +63,7 @@ class LLMManager(private val context: Context) {
             Provider.GEMINI_NANO -> chatWithGeminiNano(messages, tools)
             Provider.GEMINI_PRO -> chatWithGeminiPro(messages, tools)
             Provider.CUSTOM -> chatWithCustomEndpoint(messages, tools)
+            else -> chatWithLocalModel(messages, tools)
         }
     }
 
@@ -85,44 +86,38 @@ class LLMManager(private val context: Context) {
         val modelLoaded = llamaEngine.loadBestModel()
 
         if (!modelLoaded) {
-            // No model downloaded — attempt fallback chain
-            return when {
-                // Try Gemini Nano (silent)
-                true -> {
-                    val nanoResult = runCatching { chatWithGeminiNano(messages, tools) }
-                    val nanoResponse = nanoResult.getOrNull()
-                    if (nanoResponse != null && !nanoResponse.text.startsWith("📱") &&
-                        !nanoResponse.text.startsWith("❌") && !nanoResponse.text.startsWith("⏳")) {
-                        nanoResponse
-                    } else if (!config.apiKey.isNullOrEmpty()) {
-                        // Gemini Pro fallback
-                        chatWithGeminiPro(messages, tools)
-                    } else if (!config.endpoint.isNullOrEmpty()) {
-                        // Custom endpoint fallback
-                        chatWithCustomEndpoint(messages, tools)
-                    } else {
-                        ChatResponse(
-                            text = """
-                                📱 **No Local Model Downloaded**
-                                
-                                For 100% offline AI on your OnePlus 13, download a GGUF model:
-                                
-                                1. Go to ⚙️ **Settings → Local Model**
-                                2. Tap **Download** next to any model
-                                3. Wait ~5-10 min (1-2 GB download)
-                                4. Come back and chat completely offline!
-                                
-                                **Recommended:** Llama 3.2 3B (best quality) or Phi-3.5 Mini (fastest)
-                                
-                                While downloading, you can also use:
-                                • Gemini Nano (free, on-device via AICore)
-                                • Gemini Pro (free API key at aistudio.google.com)
-                            """.trimIndent(),
-                            toolCalls = emptyList()
-                        )
-                    }
-                }
+            // No model downloaded — attempt fallback chain: Gemini Nano → Gemini Pro → Custom → message
+            val nanoResult = runCatching { chatWithGeminiNano(messages, tools) }
+            val nanoResponse = nanoResult.getOrNull()
+            if (nanoResponse != null && !nanoResponse.text.startsWith("📱") &&
+                !nanoResponse.text.startsWith("❌") && !nanoResponse.text.startsWith("⏳")) {
+                return nanoResponse
             }
+            if (!config.apiKey.isNullOrEmpty()) {
+                return chatWithGeminiPro(messages, tools)
+            }
+            if (!config.endpoint.isNullOrEmpty()) {
+                return chatWithCustomEndpoint(messages, tools)
+            }
+            return ChatResponse(
+                text = """
+                    📱 **No Local Model Downloaded**
+                    
+                    For 100% offline AI on your OnePlus 13, download a GGUF model:
+                    
+                    1. Go to ⚙️ **Settings → Local Model**
+                    2. Tap **Download** next to any model
+                    3. Wait ~5-10 min (1-2 GB download)
+                    4. Come back and chat completely offline!
+                    
+                    **Recommended:** Llama 3.2 3B (best quality) or Phi-3.5 Mini (fastest)
+                    
+                    While downloading, you can also use:
+                    • Gemini Nano (free, on-device via AICore)
+                    • Gemini Pro (free API key at aistudio.google.com)
+                """.trimIndent(),
+                toolCalls = emptyList()
+            )
         }
 
         // Model is loaded — run inference

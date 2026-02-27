@@ -97,6 +97,9 @@ dependencies {
     // HTML parsing for WebFetchTool
     implementation("org.jsoup:jsoup:1.17.2")
 
+    // MediaPipe LLM Inference — 100% offline on-device model (Llama, Phi, Gemma)
+    implementation("com.google.mediapipe:tasks-genai:0.10.14")
+
     // Google AI SDK (for Gemini Pro cloud)
     implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
 
