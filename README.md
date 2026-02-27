@@ -94,6 +94,10 @@ cd android-agent
 | `type_text` | Type into focused field | `text` |
 | `screenshot` | Get UI hierarchy as JSON | - |
 | `shell` | Execute shell command | `command`, `useRoot` |
+| `find_element` | Find UI element by text/ID | `text`, `description`, `resourceId` |
+| `launch_app` | Launch app by name or package | `appName`, `packageName` |
+| `navigate` | System navigation (back/home) | `action` |
+| `get_current_app` | Get active app info | - |
 
 ## LLM Integration
 
@@ -189,12 +193,12 @@ android-agent/
 - [x] Chat UI
 - [x] GitHub Actions CI
 
-### Phase 2: Accessibility Layer (In Progress)
+### Phase 2: Accessibility Layer ✅
 - [x] Accessibility Service implementation
 - [x] Screen content extraction
 - [x] Gesture injection (tap, swipe, type)
-- [ ] Element finder (by text, ID, coordinates)
-- [ ] Screenshot capture (actual image, not just hierarchy)
+- [x] Element finder (by text, ID, coordinates)
+- [x] Screenshot capture (hierarchy-based, pixel WIP)
 
 ### Phase 3: Root Enhancement
 - [x] Root detection
@@ -202,9 +206,11 @@ android-agent/
 - [ ] Direct input injection (`/dev/input/event*`)
 - [ ] Advanced automation (install APKs, modify settings)
 
-### Phase 4: Skills & Tools
+### Phase 4: Skills & Tools (In Progress)
+- [x] App launcher & control
+- [x] Navigation (back, home, recents)
+- [x] Current app detection
 - [ ] Browser automation
-- [ ] App launcher & control
 - [ ] Notification reader/responder
 - [ ] Camera & sensor access
 - [ ] File manager

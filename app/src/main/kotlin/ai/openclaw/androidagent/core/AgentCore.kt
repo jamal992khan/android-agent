@@ -29,6 +29,13 @@ class AgentCore private constructor(context: Context) {
         registerTool(TypeTextTool())
         registerTool(ScreenshotTool())
         registerTool(ShellTool())
+        
+        // Advanced tools
+        registerTool(FindElementTool())
+        registerTool(NavigationTool())
+        registerTool(LaunchAppTool(context))
+        registerTool(GetCurrentAppTool(context))
+        registerTool(ScreenshotImageTool(context))
     }
     
     fun registerTool(tool: Tool) {
