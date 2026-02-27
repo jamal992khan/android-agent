@@ -114,7 +114,7 @@ fun ChatScreen() {
 
 @Composable
 fun MessageBubble(message: Message) {
-    val alignment = if (message.isUser) Alignment.End else Alignment.Start
+    val alignment = if (message.isUser) Alignment.CenterEnd else Alignment.CenterStart
     val colors = if (message.isUser) {
         CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
