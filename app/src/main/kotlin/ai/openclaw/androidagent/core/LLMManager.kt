@@ -2,6 +2,8 @@ package ai.openclaw.androidagent.core
 
 import android.content.Context
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.prompt.Generation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -14,7 +16,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Manages LLM interactions - supports:
- * 1. Gemini Nano (on-device) — graceful fallback when unavailable
+ * 1. Gemini Nano (on-device via Android AICore / ML Kit GenAI)
  * 2. Gemini Pro (cloud via API key)
  * 3. Custom endpoints (Ollama, OpenAI-compatible)
  */
@@ -34,7 +36,7 @@ class LLMManager(private val context: Context) {
     }
 
     private var config: LLMConfig = LLMConfig(
-        provider = Provider.GEMINI_NANO
+        provider = Provider.GEMINI_NANO  // Default: try on-device first (fast, private, free!)
     )
 
     private val httpClient = OkHttpClient.Builder()
@@ -59,26 +61,89 @@ class LLMManager(private val context: Context) {
     }
 
     /**
-     * Gemini Nano is an on-device model available via Android AICore.
-     * The ML Kit genai-prompt library (required for real Gemini Nano access) is no longer
-     * bundled because it was compiled against Kotlin metadata 2.2.0 and is incompatible
-     * with this project's Kotlin version.
+     * Gemini Nano via ML Kit GenAI Prompt API (on-device, requires Android AICore).
      *
-     * Instead we surface a clear, friendly message telling the user to switch providers.
+     * Availability:
+     *  - Pixel 8+ running Android 14+ with Google Play and AICore installed
+     *  - Other Android 13+ devices that have received the AICore update
+     *
+     * Gracefully handles:
+     *  - Model not available on device
+     *  - AICore not installed / not supported
+     *  - Model still downloading
      */
     private suspend fun chatWithGeminiNano(
         messages: List<Message>,
         tools: List<ToolDefinition>
     ): ChatResponse {
-        return ChatResponse(
-            text = "⚠️ **Gemini Nano (On-Device) Unavailable**\n\n" +
-                    "On-device AI via ML Kit is not enabled in this build.\n\n" +
-                    "**Quick Fix — choose one:**\n" +
-                    "• ⚙️ Settings → **Gemini Pro** (requires API key from https://aistudio.google.com/app/apikey)\n" +
-                    "• ⚙️ Settings → **Custom Endpoint** (Ollama, OpenAI, or any compatible API)\n\n" +
-                    "Tap the ⚙️ icon in the top right to configure.",
-            toolCalls = emptyList()
-        )
+        return try {
+            // Get the generative model client (no-arg factory)
+            val model = Generation.getClient()
+
+            // Check if Gemini Nano is available on this device
+            @FeatureStatus val status = model.checkStatus()
+
+            when (status) {
+                FeatureStatus.AVAILABLE -> {
+                    // Model is ready — generate response using the simple text API
+                    val prompt = buildPrompt(messages, tools)
+                    val response = model.generateContent(prompt)
+                    val text = response.candidates.firstOrNull()?.text ?: ""
+                    parseResponse(text)
+                }
+
+                FeatureStatus.UNAVAILABLE -> {
+                    ChatResponse(
+                        text = "⚠️ **Gemini Nano Not Supported**\n\n" +
+                                "This device does not support on-device Gemini Nano.\n\n" +
+                                "**Supported devices:** Pixel 8+, Samsung Galaxy S24+, and others with Android AICore.\n\n" +
+                                "**Alternatives:**\n" +
+                                "• ⚙️ Settings → **Gemini Pro** (free API key at https://aistudio.google.com/app/apikey)\n" +
+                                "• ⚙️ Settings → **Custom Endpoint** (Ollama, OpenAI, etc.)",
+                        toolCalls = emptyList()
+                    )
+                }
+
+                else -> {
+                    // Model needs to be downloaded first — inform the user
+                    // (Download can be triggered from Settings or device automatically)
+                    ChatResponse(
+                        text = "⏳ **Gemini Nano Model Download Required**\n\n" +
+                                "The on-device model is not yet downloaded on this device.\n" +
+                                "Status: $status\n\n" +
+                                "This typically happens automatically via AICore in the background.\n" +
+                                "Make sure you have a Wi-Fi connection and sufficient storage (~1.5 GB).\n\n" +
+                                "**Tip:** Use Gemini Pro or a Custom Endpoint while waiting!",
+                        toolCalls = emptyList()
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("NOT_AVAILABLE", ignoreCase = true) == true ||
+                e.message?.contains("unavailable", ignoreCase = true) == true ->
+                    "❌ **Gemini Nano Not Available**\n\n" +
+                    "Your device may support it, but AICore isn't ready.\n\n" +
+                    "**Quick Fix:**\n" +
+                    "1. Open Google Play Store\n" +
+                    "2. Search 'Android AICore'\n" +
+                    "3. Update it (join Beta if needed)\n" +
+                    "4. Restart this app\n\n" +
+                    "**Alternative:** Use Gemini Pro in Settings (works immediately!)"
+
+                e.message?.contains("DOWNLOAD", ignoreCase = true) == true ->
+                    "⏳ **Downloading Gemini Nano**\n\n" +
+                    "Model is being downloaded in the background.\n" +
+                    "This happens once (~1.5 GB). Try again in a few minutes.\n\n" +
+                    "**Tip:** Use Gemini Pro while waiting!"
+
+                else ->
+                    "❌ **Gemini Nano Error**\n\n" +
+                    "Error: ${e.message}\n\n" +
+                    "Use Gemini Pro or Custom Endpoint in Settings as fallback."
+            }
+            ChatResponse(text = errorMessage, toolCalls = emptyList())
+        }
     }
 
     private suspend fun chatWithGeminiPro(

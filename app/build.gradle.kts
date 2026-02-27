@@ -74,6 +74,7 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
@@ -91,8 +92,10 @@ dependencies {
     // Google AI SDK (for Gemini Pro cloud)
     implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
 
-    // ML Kit GenAI (genai-prompt) removed — incompatible with Kotlin 2.x metadata.
-    // GEMINI_NANO now gracefully degrades to a "not available" message.
+    // ML Kit GenAI — on-device Gemini Nano via AICore
+    // Requires Kotlin 2.2.x (library metadata compiled with Kotlin 2.2.0)
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta1")
+    implementation("com.google.mlkit:genai-common:1.0.0-beta3")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
