@@ -48,6 +48,11 @@ class AgentCore private constructor(context: Context) {
         registerTool(LongPressTool())
         registerTool(WaitTool())
         registerTool(ClickElementTool())
+
+        // Web browsing tools
+        registerTool(WebSearchTool())
+        registerTool(WebFetchTool())
+        registerTool(WebSummarizeTool())
     }
 
     fun registerTool(tool: Tool) {

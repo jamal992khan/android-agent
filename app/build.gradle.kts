@@ -89,6 +89,9 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
+    // HTML parsing for WebFetchTool
+    implementation("org.jsoup:jsoup:1.17.2")
+
     // Google AI SDK (for Gemini Pro cloud)
     implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
 

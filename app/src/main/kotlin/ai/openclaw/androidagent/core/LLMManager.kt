@@ -16,9 +16,10 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Manages LLM interactions - supports:
- * 1. Gemini Nano (on-device via Android AICore / ML Kit GenAI)
- * 2. Gemini Pro (cloud via API key)
- * 3. Custom endpoints (Ollama, OpenAI-compatible)
+ * 1. LOCAL (100% offline GGUF via MediaPipe LLM Inference — default!)
+ * 2. Gemini Nano (on-device via Android AICore / ML Kit GenAI)
+ * 3. Gemini Pro (cloud via API key)
+ * 4. Custom endpoints (Ollama, OpenAI-compatible)
  */
 class LLMManager(private val context: Context) {
 
@@ -30,14 +31,18 @@ class LLMManager(private val context: Context) {
     )
 
     enum class Provider {
-        GEMINI_NANO,    // On-device (graceful fallback if unavailable)
-        GEMINI_PRO,     // Cloud
+        LOCAL,          // 100% offline GGUF via MediaPipe (default — falls back if no model downloaded)
+        GEMINI_NANO,    // On-device Gemini Nano via AICore (graceful fallback if unavailable)
+        GEMINI_PRO,     // Cloud Gemini Pro
         CUSTOM          // Ollama, OpenAI, etc.
     }
 
     private var config: LLMConfig = LLMConfig(
-        provider = Provider.GEMINI_NANO  // Default: try on-device first (fast, private, free!)
+        provider = Provider.LOCAL  // Default: 100% offline GGUF model (best for OnePlus 13!)
     )
+
+    // MediaPipe GGUF inference engine
+    private val llamaEngine = LlamaEngine(context)
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -54,9 +59,82 @@ class LLMManager(private val context: Context) {
         tools: List<ToolDefinition>
     ): ChatResponse = withContext(Dispatchers.IO) {
         when (config.provider) {
+            Provider.LOCAL -> chatWithLocalModel(messages, tools)
             Provider.GEMINI_NANO -> chatWithGeminiNano(messages, tools)
             Provider.GEMINI_PRO -> chatWithGeminiPro(messages, tools)
             Provider.CUSTOM -> chatWithCustomEndpoint(messages, tools)
+        }
+    }
+
+    /**
+     * Expose the LlamaEngine for UI use (model loading, download status, etc.)
+     */
+    fun getLlamaEngine(): LlamaEngine = llamaEngine
+
+    /**
+     * 100% offline on-device inference via MediaPipe LLM Inference (GGUF models).
+     *
+     * Fallback chain if no local model is downloaded:
+     *   LOCAL → GEMINI_NANO → GEMINI_PRO → CUSTOM → friendly "download a model" message
+     */
+    private suspend fun chatWithLocalModel(
+        messages: List<Message>,
+        tools: List<ToolDefinition>
+    ): ChatResponse {
+        // Try to load a model if not already loaded
+        val modelLoaded = llamaEngine.loadBestModel()
+
+        if (!modelLoaded) {
+            // No model downloaded — attempt fallback chain
+            return when {
+                // Try Gemini Nano (silent)
+                true -> {
+                    val nanoResult = runCatching { chatWithGeminiNano(messages, tools) }
+                    val nanoResponse = nanoResult.getOrNull()
+                    if (nanoResponse != null && !nanoResponse.text.startsWith("📱") &&
+                        !nanoResponse.text.startsWith("❌") && !nanoResponse.text.startsWith("⏳")) {
+                        nanoResponse
+                    } else if (!config.apiKey.isNullOrEmpty()) {
+                        // Gemini Pro fallback
+                        chatWithGeminiPro(messages, tools)
+                    } else if (!config.endpoint.isNullOrEmpty()) {
+                        // Custom endpoint fallback
+                        chatWithCustomEndpoint(messages, tools)
+                    } else {
+                        ChatResponse(
+                            text = """
+                                📱 **No Local Model Downloaded**
+                                
+                                For 100% offline AI on your OnePlus 13, download a GGUF model:
+                                
+                                1. Go to ⚙️ **Settings → Local Model**
+                                2. Tap **Download** next to any model
+                                3. Wait ~5-10 min (1-2 GB download)
+                                4. Come back and chat completely offline!
+                                
+                                **Recommended:** Llama 3.2 3B (best quality) or Phi-3.5 Mini (fastest)
+                                
+                                While downloading, you can also use:
+                                • Gemini Nano (free, on-device via AICore)
+                                • Gemini Pro (free API key at aistudio.google.com)
+                            """.trimIndent(),
+                            toolCalls = emptyList()
+                        )
+                    }
+                }
+            }
+        }
+
+        // Model is loaded — run inference
+        return try {
+            val prompt = buildPrompt(messages, tools)
+            val response = llamaEngine.generateSync(prompt)
+            parseResponse(response)
+        } catch (e: Exception) {
+            ChatResponse(
+                text = "❌ Local model error: ${e.message}\n\nTry restarting the app or re-downloading the model in ⚙️ Settings.",
+                toolCalls = emptyList()
+            )
         }
     }
 

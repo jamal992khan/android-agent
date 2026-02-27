@@ -17,6 +17,10 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     
+    <!-- Download Manager permissions for GGUF model downloads -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+
     <!-- Root optional -->
     <uses-permission android:name="android.permission.ACCESS_SUPERUSER"
         tools:ignore="ProtectedPermissions" />
