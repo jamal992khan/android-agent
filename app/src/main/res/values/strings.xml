@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Android Agent</string>
+    <string name="accessibility_service_description">AI agent that can control your device through accessibility features. Tap, swipe, read screen content, and automate tasks.</string>
+    
+    <!-- Main UI -->
+    <string name="chat_hint">Ask me anything…</string>
+    <string name="send">Send</string>
+    <string name="settings">Settings</string>
+    
+    <!-- Settings -->
+    <string name="enable_accessibility">Enable Accessibility Service</string>
+    <string name="accessibility_status">Accessibility Service Status</string>
+    <string name="accessibility_enabled">Enabled ✓</string>
+    <string name="accessibility_disabled">Disabled - Tap to enable</string>
+    
+    <string name="root_status">Root Access</string>
+    <string name="root_available">Available ✓</string>
+    <string name="root_unavailable">Not available</string>
+    
+    <string name="llm_endpoint">LLM Endpoint</string>
+    <string name="llm_endpoint_hint">http://your-server:11434/v1/chat/completions</string>
+    <string name="llm_model">Model Name</string>
+    <string name="llm_model_hint">llama3.2</string>
+    
+    <!-- Permissions -->
+    <string name="permission_required">Permission Required</string>
+    <string name="grant_accessibility">Please enable the Accessibility Service in Settings</string>
+    
+</resources>
