@@ -3,9 +3,10 @@ package ai.openclaw.androidagent.tools
 import ai.openclaw.androidagent.models.Tool
 import ai.openclaw.androidagent.models.ToolParameter
 import ai.openclaw.androidagent.models.ToolResult
-import eu.chainfire.libsuperuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class ShellTool : Tool {
     override val name = "shell"
@@ -22,16 +23,25 @@ class ShellTool : Tool {
         val useRoot = params["useRoot"] as? Boolean ?: false
         
         try {
-            if (useRoot) {
-                if (!Shell.SU.available()) {
-                    return@withContext ToolResult(false, error = "Root access not available")
-                }
-                
-                val output = Shell.SU.run(command)
-                ToolResult(true, data = output?.joinToString("\n") ?: "")
+            val finalCommand = if (useRoot) {
+                arrayOf("su", "-c", command)
             } else {
-                val output = Shell.SH.run(command)
-                ToolResult(true, data = output?.joinToString("\n") ?: "")
+                arrayOf("sh", "-c", command)
+            }
+            
+            val process = Runtime.getRuntime().exec(finalCommand)
+            val output = BufferedReader(InputStreamReader(process.inputStream))
+                .readLines()
+                .joinToString("\n")
+            val error = BufferedReader(InputStreamReader(process.errorStream))
+                .readText()
+            
+            val exitCode = process.waitFor()
+            
+            if (exitCode == 0) {
+                ToolResult(true, data = output)
+            } else {
+                ToolResult(false, error = "Command failed (exit $exitCode): $error")
             }
         } catch (e: Exception) {
             ToolResult(false, error = "Command failed: ${e.message}")

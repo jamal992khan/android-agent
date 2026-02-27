@@ -91,8 +91,8 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     
-    // Root access library
-    implementation("eu.chainfire:libsuperuser:1.1.1")
+    // Root access library (commented out - library not available, will implement directly)
+    // implementation("eu.chainfire:libsuperuser:1.1.1")
     
     // Testing
     testImplementation("junit:junit:4.13.2")
