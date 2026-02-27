@@ -30,7 +30,8 @@ class LLMManager(private val context: Context) {
     }
     
     private var config: LLMConfig = LLMConfig(
-        provider = Provider.GEMINI_NANO  // Default to on-device
+        provider = Provider.GEMINI_PRO,  // Default to cloud (wider compatibility)
+        apiKey = null  // User must configure
     )
     
     fun configure(newConfig: LLMConfig) {
@@ -78,7 +79,18 @@ class LLMManager(private val context: Context) {
         tools: List<ToolDefinition>
     ): ChatResponse {
         return try {
-            val apiKey = config.apiKey ?: throw IllegalStateException("API key required for Gemini Pro")
+            val apiKey = config.apiKey
+            
+            if (apiKey.isNullOrEmpty()) {
+                return ChatResponse(
+                    text = "⚙️ **API Key Required**\n\n" +
+                           "Gemini Pro needs an API key. Get one free at:\n" +
+                           "https://makersuite.google.com/app/apikey\n\n" +
+                           "Then tap ⚙️ Settings → Gemini Pro → paste your key.\n\n" +
+                           "**Alternative:** Use a custom endpoint (Ollama on your PC).",
+                    toolCalls = emptyList()
+                )
+            }
             
             val model = GenerativeModel(
                 modelName = config.model ?: "gemini-1.5-flash",
@@ -91,7 +103,8 @@ class LLMManager(private val context: Context) {
             parseGeminiResponse(response.text ?: "")
         } catch (e: Exception) {
             ChatResponse(
-                text = "Gemini Pro error: ${e.message}",
+                text = "❌ Gemini Pro error: ${e.message}\n\n" +
+                       "Check your API key in Settings or try a different provider.",
                 toolCalls = emptyList()
             )
         }

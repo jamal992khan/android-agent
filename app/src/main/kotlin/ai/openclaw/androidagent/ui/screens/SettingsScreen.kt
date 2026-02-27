@@ -20,10 +20,13 @@ fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val agentCore = remember { AgentCore.getInstance(context) }
     
-    var selectedProvider by remember { mutableStateOf(LLMManager.Provider.GEMINI_NANO) }
-    var apiKey by remember { mutableStateOf("") }
-    var endpoint by remember { mutableStateOf("") }
-    var modelName by remember { mutableStateOf("gemini-1.5-flash") }
+    // Load current config
+    val currentConfig = remember { loadConfig(context) }
+    
+    var selectedProvider by remember { mutableStateOf(currentConfig.provider) }
+    var apiKey by remember { mutableStateOf(currentConfig.apiKey ?: "") }
+    var endpoint by remember { mutableStateOf(currentConfig.endpoint ?: "") }
+    var modelName by remember { mutableStateOf(currentConfig.model ?: "gemini-1.5-flash") }
     
     Scaffold(
         topBar = {
@@ -50,25 +53,49 @@ fun SettingsScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.titleLarge
             )
             
+            // First-run helper
+            if (apiKey.isEmpty() && selectedProvider == LLMManager.Provider.GEMINI_PRO) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "👋 Quick Setup",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "\n1. Get a free API key: https://makersuite.google.com/app/apikey\n" +
+                            "2. Paste it below\n" +
+                            "3. Tap Save\n\n" +
+                            "The agent will then be able to respond intelligently!",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+            
             // Provider selection
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     ProviderOption(
-                        title = "Gemini Nano (On-Device)",
-                        description = "Free, private, works offline. Requires Pixel 8+ or supported device.",
-                        selected = selectedProvider == LLMManager.Provider.GEMINI_NANO,
-                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_NANO }
+                        title = "Gemini Pro (Cloud) ⭐",
+                        description = "Recommended. Fast, capable, works on all devices. Free tier available.",
+                        selected = selectedProvider == LLMManager.Provider.GEMINI_PRO,
+                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_PRO }
                     )
                     
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
                     
                     ProviderOption(
-                        title = "Gemini Pro (Cloud)",
-                        description = "More capable, requires internet and API key.",
-                        selected = selectedProvider == LLMManager.Provider.GEMINI_PRO,
-                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_PRO }
+                        title = "Gemini Nano (On-Device)",
+                        description = "Free, private, offline. Only works on Pixel 8+ / Samsung S24+.",
+                        selected = selectedProvider == LLMManager.Provider.GEMINI_NANO,
+                        onClick = { selectedProvider = LLMManager.Provider.GEMINI_NANO }
                     )
                     
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
@@ -214,10 +241,10 @@ private fun saveConfig(context: Context, config: LLMManager.LLMConfig) {
 
 fun loadConfig(context: Context): LLMManager.LLMConfig {
     val prefs = context.getSharedPreferences("llm_config", Context.MODE_PRIVATE)
-    val providerName = prefs.getString("provider", LLMManager.Provider.GEMINI_NANO.name)
+    val providerName = prefs.getString("provider", LLMManager.Provider.GEMINI_PRO.name)
     
     return LLMManager.LLMConfig(
-        provider = LLMManager.Provider.valueOf(providerName ?: LLMManager.Provider.GEMINI_NANO.name),
+        provider = LLMManager.Provider.valueOf(providerName ?: LLMManager.Provider.GEMINI_PRO.name),
         apiKey = prefs.getString("api_key", null),
         endpoint = prefs.getString("endpoint", null),
         model = prefs.getString("model", null)
